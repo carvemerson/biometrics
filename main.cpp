@@ -4,6 +4,7 @@
 
 #include "Bibliotecas/cvWiener2.h"
 #include "Bibliotecas/equalization.h"
+#include "Bibliotecas/thinning.h"
 #include <opencv2/opencv.hpp>
 
 int mediana(Mat img)
@@ -61,6 +62,10 @@ int main(int argc, char *argv[]) {
 
 	namedWindow("Binarization", CV_WINDOW_AUTOSIZE);
 	imshow("Binarization", res);
+    
+    thinning(res);
+    namedWindow("Thinning", CV_WINDOW_AUTOSIZE);
+	imshow("Thinning", res);
 	
 	//cvNamedWindow("After");
 	//cvShowImage("After", tmp2);	
