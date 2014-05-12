@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "equalization.h"
+#include "Bibliotecas/equalization.h"
 #include <cv.h>
 
 using namespace std;

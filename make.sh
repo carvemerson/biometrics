@@ -1,1 +1,1 @@
- g++ -ggdb `pkg-config --cflags opencv` equalization.h cvWiener2.h equalization.cpp cvWiener2.cpp test_wiener.cpp -o cv `pkg-config --libs opencv`
+ g++ -ggdb `pkg-config --cflags opencv` Bibliotecas/equalization.h Bibliotecas/cvWiener2.h equalization.cpp cvWiener2.cpp main.cpp -o cv `pkg-config --libs opencv`

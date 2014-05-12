@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "cvWiener2.h"
+#include "Bibliotecas/cvWiener2.h"
 #include <cv.h>
 
 
