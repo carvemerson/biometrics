@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 	imshow("Filter", res);
 
 	//Binarizacao e Afinamento
-	threshold(res, res, mediana(res), 255, THRESH_BINARY);
+	threshold(res, res, mediana(res), 255, THRESH_BINARY_INV);
 
 	namedWindow("Binarization", CV_WINDOW_AUTOSIZE);
 	imshow("Binarization", res);
