@@ -1,0 +1,3 @@
+#include <cv.h>
+
+Mat minutiae(Mat tmp);
