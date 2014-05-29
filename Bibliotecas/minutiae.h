@@ -5,4 +5,4 @@
 using namespace cv;
 using namespace std;
 
-Mat minutiae(Mat &tmp);
+Mat minutiae(Mat &tmp, Mat &dst);

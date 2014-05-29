@@ -1,1 +1,0 @@
- g++ -ggdb `pkg-config --cflags opencv` Bibliotecas/equalization.h Bibliotecas/cvWiener2.h Bibliotecas/thinning.h Bibliotecas/minutiate.h equalization.cpp cvWiener2.cpp thinning.cpp minutiate.cpp main.cpp -o cv `pkg-config --libs opencv`
