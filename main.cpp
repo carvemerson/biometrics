@@ -229,14 +229,13 @@ vector<double> nearestMinutiaes(Mat &img){
 
 int main(int argc, char *argv[]){
 
-    int imgTraningSize = 5;
-    double trashoud = 1.5;
     minutiaeNearestSize = 100;
     int ignorar = 1; // imagem que será ignorada, e sera usada para testes, 0 <= ignorar < imgTraningSize
+    int imgTraningSize = 5;
+    double threshold = 1.5;
     vector< vector<double> > mat;
     
-    int i;
-    for(i = 0; i < imgTraningSize; i++){
+    for(int i = 0; i < imgTraningSize; i++){
         
         if(i  != ignorar){
             Mat img = imread("Images/006_L0_"+ intToString(i)  +".bmp", CV_LOAD_IMAGE_GRAYSCALE); //Leitura
@@ -253,19 +252,30 @@ int main(int argc, char *argv[]){
     
     for(int j = 0; j < mat.size(); j++){
         int hit = 0;
-        for(int k = 0; k < mat[j].size() && k < minutiaeTeste.size(); k++){
-            double inf = mat[j][k] - trashoud;
-            double sup = mat[j][k] + trashoud;
+        for(int k = 0, l = 0; k < mat[j].size() && l < minutiaeTeste.size();){
+            double inf = mat[j][k] - threshold;
+            double sup = mat[j][k] + threshold;
             
-            if(minutiaeTeste[k] >= inf && minutiaeTeste[k] <= sup){
-                hit ++;
+            if(minutiaeTeste[l] >= inf && minutiaeTeste[l] <= sup){
+                hit++;
+                k++;
+                l++;
+            }
+            else
+            {
+                if(minutiaeTeste[l] < inf) l++;
+                else k++;
             }
         }
         avg+=hit;
-        cout<< hit <<endl;
+        cout << j << endl;
+        cout << "HIT: " << hit <<endl;
+        cout << "RATE: " << hit/(double)minutiaeTeste.size() << endl;
     }
     
-    cout << "Media : " << avg / 4 <<endl;
+    cout << "Media" <<endl;
+    cout << "HIT: " << avg / 4 << endl;
+    cout << "RATE: " << (avg / 4)/(double)minutiaeTeste.size() << endl;
     //cout << mat.size() << " " << mat[0].size()  << endl;
     
 }
