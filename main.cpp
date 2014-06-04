@@ -1,10 +1,10 @@
-#include <stdio.h>
 #include <algorithm>
-#include <vector>
-#include <cstring>
 #include <string>
+#include <vector>
 #include <cmath>
 #include <climits>
+#include <cstdio>
+#include <cstring>
 
 #include "Bibliotecas/cvWiener2.h"
 #include "Bibliotecas/equalization.h"
@@ -162,14 +162,20 @@ string convertChar(int x){
 
 }
 
-string intToString(int x){
-    if(x == 0) return "0";
+string intToString(int x, bool zeros){
+    if(x == 0){
+        if(zeros) return "000";
+        else return "0";
+    }
+
     string str = "";
     while(x!=0){
         str = convertChar(x%10) + str;
         x /= 10;
     }
 
+    if(str.size() == 1 && zeros) return "00"+str;
+    if(str.size() == 2 && zeros) return "0"+str;
     return str;
 }
 
@@ -228,56 +234,56 @@ vector<double> nearestMinutiaes(Mat &img){
 }
 
 int main(int argc, char *argv[]){
-
     minutiaeNearestSize = 100;
-    int ignorar = 1; // imagem que será ignorada, e sera usada para testes, 0 <= ignorar < imgTraningSize
+    double threshold = 0.5;
+
     int imgTraningSize = 5;
-    double threshold = 1.5;
-    vector< vector<double> > mat;
-    
-    for(int i = 0; i < imgTraningSize; i++){
-        
-        if(i  != ignorar){
-            Mat img = imread("Images/006_L0_"+ intToString(i)  +".bmp", CV_LOAD_IMAGE_GRAYSCALE); //Leitura
+
+    cout << "USUARIO DEDO TX0 TX1 TX2 TX3 TX4 MEDIA\n" << endl;
+
+    for(int user=0;user < 500;user++){
+        vector< vector<double> > mat;
+
+        for(int i = 0; i < imgTraningSize; i++){
+            string str = "CASIA-FingerprintV5/"+intToString(user, true)+"/L/"+intToString(user, true)+"_L0_"+intToString(i, false)+".bmp";
+
+            Mat img = imread(str, CV_LOAD_IMAGE_GRAYSCALE); //Leitura
             Mat res = preProcess(img); // PreProcessamento, aplicação de filtros e esqueletização
             mat.push_back(nearestMinutiaes(res)); // inclui as distâncias das minucias mais próximas
         }
-    }
-    
-    Mat img = imread("Images/006_L0_"+ intToString(ignorar)  +".bmp", CV_LOAD_IMAGE_GRAYSCALE); //Leitura da imagem de teste
-    Mat res = preProcess(img); // PreProcessamento, aplicação de filtros e esqueletização
-    vector <double> minutiaeTeste = nearestMinutiaes(res); // visinhos mais próximos da imagem de teste
-    
-    double avg = 0;
-    
-    for(int j = 0; j < mat.size(); j++){
-        int hit = 0;
-        for(int k = 0, l = 0; k < mat[j].size() && l < minutiaeTeste.size();){
-            double inf = mat[j][k] - threshold;
-            double sup = mat[j][k] + threshold;
-            
-            if(minutiaeTeste[l] >= inf && minutiaeTeste[l] <= sup){
-                hit++;
-                k++;
-                l++;
+
+        for(int ignorar = 0; ignorar < imgTraningSize; ++ignorar){
+            printf("%03d L0 ", user);
+            double avg = 0;
+            for(int j = 0; j < mat.size(); j++){
+                int hit = 0;
+                if(j != ignorar){
+                    for(int k = 0, l = 0; k < mat[j].size() && l < mat[ignorar].size();){
+                        double inf = mat[j][k] - threshold;
+                        double sup = mat[j][k] + threshold;
+                        
+                        if(mat[ignorar][l] >= inf && mat[ignorar][l] <= sup){
+                            hit++;
+                            k++;
+                            l++;
+                        }
+                        else
+                        {
+                            if(mat[ignorar][l] < inf) l++;
+                            else k++;
+                        }
+                    }
+                    avg+=(hit*100)/(double)mat[ignorar].size();
+                    printf("%.5lf\t", hit/(double)mat[ignorar].size());
+                }
+                else{
+                    printf("XXX\t");
+                }
             }
-            else
-            {
-                if(minutiaeTeste[l] < inf) l++;
-                else k++;
-            }
+            printf("%.5lf\n", (avg / 4.0));
         }
-        avg+=hit;
-        cout << j << endl;
-        cout << "HIT: " << hit <<endl;
-        cout << "RATE: " << hit/(double)minutiaeTeste.size() << endl;
+        printf("\n");
     }
-    
-    cout << "Media" <<endl;
-    cout << "HIT: " << avg / 4 << endl;
-    cout << "RATE: " << (avg / 4)/(double)minutiaeTeste.size() << endl;
-    //cout << mat.size() << " " << mat[0].size()  << endl;
-    
 }
 
 //antiga main 
