@@ -160,69 +160,126 @@ Mat preprocess(Mat &img)
 
 int main(int argc, char *argv[])
 {
+    int a, b, c, d;
+    a=b=c=d=0;
     nearestMinutiaesSize = 150;
     nearestMinutiaesThreshold = 0.25;
 
-    int imgTraning = 5;
+    int imgTraningSize = 4;
 
-    printf("USUARIO DEDO TX0 TX1 TX2 TX3 TX4 MEDIA\n\n");
-
-    for(int user=0;user < 500;user++)
+    for(int user = 0;user < 450;user++)
     {
-        vector< vector<double> > mat;
+        printf("%03d\n", user);
+        vector< vector<double> > imgTraning;
 
-        for(int i = 0;i < imgTraning;i++)
+        for(int i = 0;i < imgTraningSize+1;i++)
         {
             string str = "CASIA-FingerprintV5/"+intToString(user, true)+"/L/"+intToString(user, true)+"_L0_"+intToString(i, false)+".bmp";
 
-            Mat img = imread(str, CV_LOAD_IMAGE_GRAYSCALE); //Leitura
-            Mat res = preprocess(img); // PreProcessamento, aplicação de filtros e esqueletização
+            Mat img = imread(str, CV_LOAD_IMAGE_GRAYSCALE);
+            Mat res = preprocess(img);
 
-            mat.push_back(nearestMinutiaes(res)); // inclui as distâncias das minucias mais próximas
+            imgTraning.push_back(nearestMinutiaes(res));
         }
 
-        for(int ignorar = 0;ignorar < imgTraning;ignorar++)
+        int ignorar = 4;
+        double avg = 0;
+        double avgThreshold = 0.75;
+
+        for(int i = 0;i < imgTraningSize;i++)
         {
-            printf("%03d L0 ", user);
+            int hit = 0;
 
-            double avg = 0;
-
-            for(int i = 0;i < mat.size();i++)
+            for(int j = 0, k = 0;j < imgTraning[i].size() && k < imgTraning[ignorar].size();)
             {
-                int hit = 0;
-
-                if(i != ignorar)
+                double inf = imgTraning[i][j] - nearestMinutiaesThreshold;
+                double sup = imgTraning[i][j] + nearestMinutiaesThreshold;
+                
+                if(imgTraning[ignorar][k] >= inf && imgTraning[ignorar][k] <= sup)
                 {
-                    for(int j = 0, k = 0;j < mat[i].size() && k < mat[ignorar].size();)
-                    {
-                        double inf = mat[i][j] - nearestMinutiaesThreshold;
-                        double sup = mat[i][j] + nearestMinutiaesThreshold;
-                        
-                        if(mat[ignorar][k] >= inf && mat[ignorar][k] <= sup)
-                        {
-                            hit++;
-                            j++;
-                            k++;
-                        }
-                        else
-                        {
-                            if(mat[ignorar][k] < inf) k++;
-                            else j++;
-                        }
-                    }
-
-                    avg += (hit*100)/(double)mat[ignorar].size();
-                    printf("%.3lf\t", (hit*100)/(double)mat[ignorar].size());
+                    hit++;
+                    j++;
+                    k++;
                 }
                 else
                 {
-                    printf("XXXXXX\t");
+                    if(imgTraning[ignorar][k] < inf) k++;
+                    else j++;
                 }
             }
-            printf("%.3lf\n", (avg / 4.0));
+
+            avg += hit/(double)imgTraning[ignorar].size();
         }
+        if(avg/imgTraningSize > avgThreshold)
+        {
+            printf("A");
+            a++;
+        }
+        else
+        {
+            printf("B");
+            b++;
+        }
+        printf(" - %.5lf\n", (avg*100)/imgTraningSize);
+
+        int x, y;
+        x=y=0;
+
+        for(int i = 450;i < 500;i++)
+        {
+            vector<double> aux;
+
+            string str = "CASIA-FingerprintV5/"+intToString(i, true)+"/L/"+intToString(i, true)+"_L0_0.bmp";
+
+            Mat img = imread(str, CV_LOAD_IMAGE_GRAYSCALE);
+            Mat res = preprocess(img);
+
+            aux = nearestMinutiaes(res);
+
+            avg = 0;
+
+            for(int j = 0;j < imgTraningSize;j++)
+            {
+                int hit = 0;
+
+                for(int k = 0, l = 0;k < imgTraning[j].size() && l < aux.size();)
+                {
+                    double inf = imgTraning[j][k] - nearestMinutiaesThreshold;
+                    double sup = imgTraning[j][k] + nearestMinutiaesThreshold;
+                    
+                    if(aux[l] >= inf && aux[l] <= sup)
+                    {
+                        hit++;
+                        k++;
+                        l++;
+                    }
+                    else
+                    {
+                        if(aux[l] < inf) l++;
+                        else k++;
+                    }
+                }
+
+                avg += hit/(double)aux.size();
+            }
+            if(avg/imgTraningSize > avgThreshold)
+            {
+                printf("C");
+                c++;
+                x++;
+            }
+            else
+            {
+                printf("D");
+                d++;
+                y++;
+            }
+            printf(" - %.5lf\n", (avg*100)/imgTraningSize);
+        }
+        printf("X - %d de 50\nY - %d de 50\n", x, y);
         printf("\n");
     }
+    printf("A - %d de 450\nB - %d de 450\nC - %d de %d\nD - %d de %d\n", a, b, c, 50*450, d, 50*450);
 }
 
 
