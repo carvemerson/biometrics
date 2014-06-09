@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#include "Bibliotecas/equalization.h"
 #include <cv.h>
+#include "Bibliotecas/equalization.h"
 
 using namespace std;
 using namespace cv;

@@ -1,23 +1,232 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include <cmath>
 #include <climits>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
 #include "Bibliotecas/cvWiener2.h"
 #include "Bibliotecas/equalization.h"
-#include "Bibliotecas/thinning.h"
 #include "Bibliotecas/minutiae.h"
+#include "Bibliotecas/thinning.h"
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/ml/ml.hpp>
 
-int minutiaeNearestSize;
+int nearestMinutiaesSize;
+double nearestMinutiaesThreshold;
 
+string convertChar(int x)
+{
+    switch(x) {
+        case 0 :
+            return "0";
+            break;
+        case 1 :
+            return "1";
+            break;
+        case 2 :
+            return "2";
+            break;
+        case 3 :
+            return "3";
+            break;
+        case 4 :
+            return "4";
+            break;
+        case 5 :
+            return "5";
+            break;
+        case 6 :
+            return "6";
+            break;
+        case 7 :
+            return "7";
+            break;
+        case 8 :
+            return "8";
+            break;
+        case 9 :
+            return "9";
+            break;
+    }
+}
+
+string intToString(int x, bool zeros)
+{
+    if(x == 0)
+    {
+        if(zeros) return "000";
+        else return "0";
+    }
+
+    string str = "";
+    while(x != 0)
+    {
+        str = convertChar(x%10) + str;
+        x /= 10;
+    }
+
+    if(str.size() == 1 && zeros) return "00" + str;
+    if(str.size() == 2 && zeros) return "0" + str;
+    return str;
+}
+
+//Distancia entre dois pontos
+double distancia(pair<int, int> &a, pair<int, int> &b)
+{
+    return sqrt((a.first - b.first)*(a.first - b.first) + (a.second - b.second)*(a.second - b.second));
+}
+
+//Retorna as 100 minucias mais proximas
+vector<double> nearestMinutiaes(Mat &img)
+{
+    vector<double> dist;
+    vector< pair<int, int> > min = minutiae(img); // Posições das minucias
+
+    for(int i = 0;i < min.size()-1;i++)
+    {
+        for(int j = i+1;j < min.size();j++)
+        {
+            dist.push_back(distancia(min[i], min[j]));
+        }
+    }
+    sort(dist.begin(), dist.end());
+
+    if(dist.size() > nearestMinutiaesSize)
+    {
+        dist = vector<double> (dist.begin(),dist.begin()+nearestMinutiaesSize);
+    }
+
+    return dist;
+}
+
+void cvWiener2ADP(Mat srcArr, Mat dstArr, int szWindowX, int szWindowY)
+{
+    IplImage *tmp = new IplImage(srcArr);
+    IplImage *tmp2 = cvCreateImage(cvSize(tmp->width, tmp->height), IPL_DEPTH_8U, 1);
+
+    cvWiener2(tmp, tmp2, szWindowX, szWindowY);
+
+    dstArr = Mat(tmp2, true);
+}
+
+int mediana(Mat img, int pos=127)
+{
+    uchar * res = imgHistogram(img);
+    vector< pair<uchar, int> > vet;
+
+    for(int i=0;i < 256;i++)
+    {
+        vet.push_back(make_pair(res[i],i));
+    }
+    sort(vet.begin(), vet.end());
+
+    return vet[pos].second;
+}
+
+Mat preprocess(Mat &img)
+{
+    Mat aux;
+    Mat res = Mat(img.rows, img.cols, CV_8UC1);
+
+    blur(img, res, Size(3, 3), Point(-1,-1));
+
+    aux = res.clone();
+    bilateralFilter(aux, res, 5, 5*2, 5/2);
+
+    aux = res.clone();
+    GaussianBlur(aux, res, cv::Size(0, 0), 3);
+    addWeighted(aux, 1.5, res, -0.5, 0, res);
+
+    //Filtro de Wiener
+    //cvWiener2ADP(res, res, 10, 10);
+
+    //Binarizacao e afinamento
+    threshold(res, res, mediana(res), 255, THRESH_BINARY_INV);
+
+    //Esqueletizacao
+    thinning(res);
+/*
+    namedWindow("thinning", CV_WINDOW_AUTOSIZE);
+    imshow("thinning", res);
+    waitKey(0);
+*/
+    return res;
+}
+
+int main(int argc, char *argv[])
+{
+    nearestMinutiaesSize = 150;
+    nearestMinutiaesThreshold = 0.25;
+
+    int imgTraning = 5;
+
+    printf("USUARIO DEDO TX0 TX1 TX2 TX3 TX4 MEDIA\n\n");
+
+    for(int user=0;user < 500;user++)
+    {
+        vector< vector<double> > mat;
+
+        for(int i = 0;i < imgTraning;i++)
+        {
+            string str = "CASIA-FingerprintV5/"+intToString(user, true)+"/L/"+intToString(user, true)+"_L0_"+intToString(i, false)+".bmp";
+
+            Mat img = imread(str, CV_LOAD_IMAGE_GRAYSCALE); //Leitura
+            Mat res = preprocess(img); // PreProcessamento, aplicação de filtros e esqueletização
+
+            mat.push_back(nearestMinutiaes(res)); // inclui as distâncias das minucias mais próximas
+        }
+
+        for(int ignorar = 0;ignorar < imgTraning;ignorar++)
+        {
+            printf("%03d L0 ", user);
+
+            double avg = 0;
+
+            for(int i = 0;i < mat.size();i++)
+            {
+                int hit = 0;
+
+                if(i != ignorar)
+                {
+                    for(int j = 0, k = 0;j < mat[i].size() && k < mat[ignorar].size();)
+                    {
+                        double inf = mat[i][j] - nearestMinutiaesThreshold;
+                        double sup = mat[i][j] + nearestMinutiaesThreshold;
+                        
+                        if(mat[ignorar][k] >= inf && mat[ignorar][k] <= sup)
+                        {
+                            hit++;
+                            j++;
+                            k++;
+                        }
+                        else
+                        {
+                            if(mat[ignorar][k] < inf) k++;
+                            else j++;
+                        }
+                    }
+
+                    avg += (hit*100)/(double)mat[ignorar].size();
+                    printf("%.3lf\t", (hit*100)/(double)mat[ignorar].size());
+                }
+                else
+                {
+                    printf("XXXXXX\t");
+                }
+            }
+            printf("%.3lf\n", (avg / 4.0));
+        }
+        printf("\n");
+    }
+}
+
+
+/*
 void print(Mat im){
     for (int i = 0; i < im.rows; i++)
     {
@@ -79,29 +288,10 @@ Mat segmentation(Mat img)
     }
     return res;
 }
+*/
 
-int mediana(Mat img, int pos=127)
-{
-    vector< pair<uchar, int> > vet;
 
-    uchar * res = imgHistogram(img);
-
-    for(int i=0; i < 256;i++){
-        vet.push_back(make_pair(res[i],i));
-    }
-    sort(vet.begin(), vet.end());
-    return vet[pos].second;
-}
-
-void cvWiener2ADP(Mat srcArr, Mat dstArr, int szWindowX, int szWindowY) {
-    IplImage *tmp = new IplImage(srcArr);
-    IplImage *tmp2 = cvCreateImage(cvSize(tmp->width, tmp->height), IPL_DEPTH_8U, 1);
-
-    cvWiener2(tmp, tmp2, szWindowX, szWindowY);
-
-    dstArr = Mat(tmp2, true);
-}
-
+/*
 Mat ce(Mat img)
 {
     int quartil = mediana(img);
@@ -123,168 +313,9 @@ Mat ce(Mat img)
         //cout << endl;
     }
     return aux;
-} 
-
-string convertChar(int x){
-    switch(x) {
-        case 0 :
-        return "0";
-        break;
-        case 1 :
-        return "1";
-        break;
-        case 2 :
-        return "2";
-        break;
-        case 3 :
-        return "3";
-        break;
-        case 4 :
-        return "4";
-        break;
-        case 5 :
-        return "5";
-        break;
-        case 6 :
-        return "6";
-        break;
-        case 7 :
-        return "7";
-        break;
-        case 8 :
-        return "8";
-        break;
-        case 9 :
-        return "9";
-        break;
-
-    }
-
 }
+*/
 
-string intToString(int x, bool zeros){
-    if(x == 0){
-        if(zeros) return "000";
-        else return "0";
-    }
-
-    string str = "";
-    while(x!=0){
-        str = convertChar(x%10) + str;
-        x /= 10;
-    }
-
-    if(str.size() == 1 && zeros) return "00"+str;
-    if(str.size() == 2 && zeros) return "0"+str;
-    return str;
-}
-
-Mat preProcess(Mat &img){
-
-    Mat res = Mat(img.rows, img.cols, CV_8UC1);
-
-    blur( img, res, Size( 3, 3 ), Point(-1,-1) );
-    Mat aux = res.clone();
-    bilateralFilter ( aux, res, 5, 5*2, 5/2 );
-    aux = res.clone();
-    cv::GaussianBlur(aux, res, cv::Size(0, 0), 3);
-    cv::addWeighted(aux, 1.5, res, -0.5, 0, res);
-
-    //Filtro de Wiener
-    cvWiener2ADP(res, res, 5, 5);
-
-    //Binarizacao e Afinamento
-    threshold(res, res, mediana(res), 255, THRESH_BINARY_INV);
-
-    //Esqueletização
-    thinning(res);
-
-    /*namedWindow("Preprocess", CV_WINDOW_AUTOSIZE);
-    imshow("Preprocess", res);
-    waitKey(0);*/
-    return res;
-}
-
-//distancia entre dois pontos
-double distancia(pair<int, int> &a, pair<int, int> &b){
-
-    return sqrt((a.first - b.first)*(a.first - b.first) + (a.second - b.second)*(a.second - b.second));
-
-}
-
-//Retorna as 100 minucias mais próximas
-vector<double> nearestMinutiaes(Mat &img){
-
-    vector< pair<int, int> > min = minutiae(img); // Posições das minucias 
-    vector<double> dist;
-
-    for(int i = 0; i < min.size()-1; i++){
-        for(int j = i+1; j < min.size() ; j++){
-            dist.push_back( distancia(min[i], min[j]) );
-        }
-    }
-
-    sort(dist.begin(), dist.end());
-
-    if(dist.size() > minutiaeNearestSize){
-        dist = vector<double> (dist.begin(),dist.begin()+minutiaeNearestSize);
-    }
-
-    return dist;
-}
-
-int main(int argc, char *argv[]){
-    minutiaeNearestSize = 100;
-    double threshold = 0.5;
-
-    int imgTraningSize = 5;
-
-    cout << "USUARIO DEDO TX0 TX1 TX2 TX3 TX4 MEDIA\n" << endl;
-
-    for(int user=0;user < 500;user++){
-        vector< vector<double> > mat;
-
-        for(int i = 0; i < imgTraningSize; i++){
-            string str = "CASIA-FingerprintV5/"+intToString(user, true)+"/L/"+intToString(user, true)+"_L0_"+intToString(i, false)+".bmp";
-
-            Mat img = imread(str, CV_LOAD_IMAGE_GRAYSCALE); //Leitura
-            Mat res = preProcess(img); // PreProcessamento, aplicação de filtros e esqueletização
-            mat.push_back(nearestMinutiaes(res)); // inclui as distâncias das minucias mais próximas
-        }
-
-        for(int ignorar = 0; ignorar < imgTraningSize; ++ignorar){
-            printf("%03d L0 ", user);
-            double avg = 0;
-            for(int j = 0; j < mat.size(); j++){
-                int hit = 0;
-                if(j != ignorar){
-                    for(int k = 0, l = 0; k < mat[j].size() && l < mat[ignorar].size();){
-                        double inf = mat[j][k] - threshold;
-                        double sup = mat[j][k] + threshold;
-                        
-                        if(mat[ignorar][l] >= inf && mat[ignorar][l] <= sup){
-                            hit++;
-                            k++;
-                            l++;
-                        }
-                        else
-                        {
-                            if(mat[ignorar][l] < inf) l++;
-                            else k++;
-                        }
-                    }
-                    avg+=(hit*100)/(double)mat[ignorar].size();
-                    printf("%.5lf\t", hit/(double)mat[ignorar].size());
-                }
-                else{
-                    printf("XXX\t");
-                }
-            }
-            printf("%.5lf\n", (avg / 4.0));
-        }
-        printf("\n");
-    }
-}
 
 //antiga main 
 /*
