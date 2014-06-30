@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 
         int ignorar = 4;
         double avg = 0;
-        double avgThreshold = 0.75;
+        double avgThreshold = 0.66;
 
         for(int i = 0;i < imgTraningSize;i++)
         {
